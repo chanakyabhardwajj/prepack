@@ -420,16 +420,33 @@ export class Generator {
       output.emitBindingModification(modifiedBinding);
     }
 
+    let includesCreatedObjects = (outer: Effects, inner: Effects) => {
+      for (let createdObject of inner.createdObjects) if (!outer.createdObjects.has(createdObject)) return false;
+      return true;
+    };
+
+    let disjointCreatedObjects = (x: Effects, y: Effects) => {
+      for (let createdObject of x.createdObjects) if (y.createdObjects.has(createdObject)) return false;
+      for (let createdObject of y.createdObjects) if (x.createdObjects.has(createdObject)) return false;
+      return true;
+    };
+
     if (result instanceof UndefinedValue) return output;
     if (result instanceof Value) {
       output.emitReturnValue(result);
     } else if (result instanceof ReturnCompletion) {
       output.emitReturnValue(result.value);
     } else if (result instanceof PossiblyNormalCompletion) {
+      invariant(includesCreatedObjects(effects, result.consequentEffects));
+      invariant(includesCreatedObjects(effects, result.alternateEffects));
+      invariant(disjointCreatedObjects(result.consequentEffects, result.alternateEffects));
       output.emitPossiblyNormalReturn(result, realm);
     } else if (result instanceof ThrowCompletion) {
       output.emitThrow(result.value);
     } else if (result instanceof JoinedAbruptCompletions) {
+      invariant(includesCreatedObjects(effects, result.consequentEffects));
+      invariant(includesCreatedObjects(effects, result.alternateEffects));
+      invariant(disjointCreatedObjects(result.consequentEffects, result.alternateEffects));
       output.emitJoinedAbruptCompletions(result, realm);
     } else {
       invariant(false);
